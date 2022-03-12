@@ -7,12 +7,6 @@ require_once $_SERVER['DOCUMENT_ROOT'] . "/_config.php";
  * Seu código PHP desta página entra aqui! *
  *******************************************/
 
-header("Expires: 0");
-header("Last-Modified: " . gmdate("D, d M Y H:i:s") . " GMT");
-header("Cache-Control: no-store, no-cache, must-revalidate");
-header("Cache-Control: post-check=0, pre-check=0", false);
-header("Pragma: no-cache");
-
 // Variáveis desta página
 $name = $email = $subject = $message = $feedback = '';
 
@@ -20,7 +14,7 @@ $name = $email = $subject = $message = $feedback = '';
 $show_form = true;
 
 // Detecta se o formulário foi enviado...
-if (isset($_POST['send'])) {
+if (isset($_POST['send'])) :
 
     // Se foi enviado, processa o formulário...
 
@@ -101,7 +95,7 @@ MSG;
         @mail($to, $sj, $msg);
 
     endif;
-}
+endif; // if (isset($_POST['send'])) 
 
 /*********************************************
  * Seu código PHP desta página termina aqui! *
@@ -123,7 +117,7 @@ require_once $_SERVER['DOCUMENT_ROOT'] . "/_header.php";
 <article>
 
     <h2>Faça contato</h2>
-    <p>Preencha todos os campos do formulário abaixo para entrar em contato com a equipe do <strong><?php echo $site_name ?></strong>.</p>
+    <p>Preencha todos os campos do formulário abaixo para entrar em contato com a equipe do <strong><?php echo $site['name'] ?></strong>.</p>
 
     <?php echo $feedback; ?>
 

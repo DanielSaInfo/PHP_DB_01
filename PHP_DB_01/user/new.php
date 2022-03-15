@@ -8,7 +8,14 @@ require_once $_SERVER['DOCUMENT_ROOT'] . "/_config.php";
  *******************************************/
 
 // Variáveis desta página
-$form = [];
+$form = [
+    "name" => '',
+    "email" => '',
+    'birth' => '',
+    'password' => '',
+    'password2' => '',
+    'feedback' => ''
+];
 
 // Variável que exibe/oculta formulário.
 $show_form = true;
@@ -20,28 +27,30 @@ if (isset($_POST['send'])) :
     // Atenção! A função "sanitize()" está em "/_config.php".
     $form['name'] = sanitize('name', 'string');
     $form['email'] = sanitize('email', 'email');
-    $form['birth'] = sanitize('birth', 'date');
+    $form['birth'] = sanitize('birth', 'string');
     $form['password'] = sanitize('password', 'string');
     $form['password2'] = sanitize('password2', 'string');
 
-    echo '<pre>';
-    print_r($form);
-    echo '</pre>';
-    exit;
-
     // Verifica se todos os campos form preenchidos
-    if ($name === '' or $email === '' or $birth === '' or $password === '' or $password2 === '') :
-        $feedback = '<h3 style="color:red">Erro: por favor, preencha todos os campos!</h3>';
-
+    if ($form['name'] === '' or $form['email'] === '' or $form['birth'] === '' or $form['password'] === '' or $form['password2'] === '') :
+        $form['feedback'] = '<h3 style="color:red">Erro: por favor, preencha todos os campos!</h3>';
 
     // Verifica se as senhas digitadas coincidem
-    elseif ($password !== $password2) :
-        $feedback = '<h3 style="color:red">Erro: as senhas não coincidem!</h3>';
-        $password = $password2 = '';
+    elseif ($form['password'] !== $form['password2']) :
+        $form['feedback'] = '<h3 style="color:red">Erro: as senhas não coincidem!</h3>';
+        $form['password'] = $form['password2'] = '';
+
+    // Verifica se a data é válida
+    elseif (!validateDate($form['birth'])) :
+        $form['feedback'] = '<h3 style="color:red">Erro: a data de nascimento está incorreta!</h3>';
+        $form['birth'] = '';
     else :
 
-        // Cria a query para slvar no banco de dados.
+        /*///////////////////////////////////
+        Evitar que o usuário se cadastre novamente
+        ////////////////////////////////////*/
 
+        // Cria a query para salvar no banco de dados.
         $sql = <<<SQL
 
 INSERT INTO users (
@@ -51,35 +60,54 @@ INSERT INTO users (
     user_password
 ) VALUES 
 (
-    '{$name}',
-    '{$email}',
-    '{$birth}',
-    '{$password}'
-),
+    '{$form['name']}',
+    '{$form['email']}',
+    '{$form['birth']}',
+    SHA2('{$form['password']}', 512)
+);
 
 SQL;
 
-        echo '<pre>';
-        print_r($sql);
-        echo '</pre>';
-        exit;
+        // Salva contato no banco de dados.
+        $conn->query($sql);
 
-    // Salva contato no banco de dados.
+        // Obtém somente primeiro nome do rementente.
+        $first_name = explode(" ", $form['name'])[0];
 
-    // Cria mensagem de confirmação.
+        // Cria mensagem de confirmação.
+        $form['feedback'] = <<<OUT
+        
+    <h3>Olá {$first_name}!</h3>
+    <p>Seu cadastro foi criado com sucesso.</p>
+    <p>Você já pode acessar as áreas restritas do site quando se logar.</p>
+    <p><em>Obrigado...</em></p>
+    
+OUT;
 
-    // Oculto o formulário.
+        // Oculto o formulário.
+        $show_form = false;
 
-    // Data de envio.
+        // Data de envio.
+        $now = date('d/m/Y \à\s H:i');
 
-    // Enviar e-mail para o administrador.
+        // Enviar e-mail para o administrador.
+        $to = $site['admin'];
+        $sj = 'Novo cadastro em ' . $site['name'] . '.';
+        $msg = <<<MSG
+
+Um novo usuário se cadastrou em {$site['name']}:
+
+    Data: {$now}
+    Nome: {$form['name']}
+    E-mail: {$form['email']}
+    Nascimento: {$form['birth']}
+
+Obrigado...
+
+MSG;
+        @mail($to, $sj, $msg);
 
     endif;
-
-    echo '<pre>';
-    print_r($feedback);
-    echo '</pre>';
-    exit;
 
 endif; // if (isset($_POST['send']))
 
@@ -91,7 +119,7 @@ endif; // if (isset($_POST['send']))
 $page_title = "";
 
 // Opção ativa no menu
-$page_menu = "index";
+$page_menu = "new";
 
 // Inclui o cabeçalho da página
 require_once $_SERVER['DOCUMENT_ROOT'] . "/_header.php";
@@ -104,44 +132,50 @@ require_once $_SERVER['DOCUMENT_ROOT'] . "/_header.php";
 
     <h2>Novo usuário</h2>
 
-    <p>Preencha todos os campos do formulário para se cadastrar no <?php echo $site['name'] ?>.</p>
+    <?php echo $form['feedback']; ?>
 
-    <form action="<?php echo htmlspecialchars($_SERVER['PHP_SELF']) ?>" method="post">
+    <?php if ($show_form) : ?>
 
-        <input type="hidden" name="send" value="true">
+        <p>Preencha todos os campos do formulário para se cadastrar no <?php echo $site['name'] ?>.</p>
 
-        <p>
-            <label for="name">Nome:</label>
-            <input type="text" name="name" id="name" placeholder="Seu nome completo." value="" autofocus>
-        </p>
+        <form action="<?php echo htmlspecialchars($_SERVER['PHP_SELF']) ?>" method="post">
 
-        <p>
-            <label for="email">E-mail:</label>
-            <input type="email" name="email" id="email" placeholder="Seu e-mail principal." value="">
-        </p>
+            <input type="hidden" name="send" value="true">
 
-        <p>
-            <label for="birth">Nascimento:</label>
-            <input type="date" name="birth" id="birth" placeholder="Sua data de nascimento" value="">
-        </p>
+            <p>
+                <label for="name">Nome:</label>
+                <input type="text" name="name" id="name" placeholder="Seu nome completo." value="<?php echo $form['name'] ?>" autofocus>
+            </p>
 
-        <p>
-            <label for="password">Senha:</label>
-            <input type="password" name="password" id="password" placeholder="Sua senha." value="">
-            <small>Sua senha deve ter pelo menos 7 caracteres, uma letra maiúscula, uma minúscula e um número.</small>
-        </p>
+            <p>
+                <label for="email">E-mail:</label>
+                <input type="email" name="email" id="email" placeholder="Seu e-mail principal." value="<?php echo $form['email'] ?>">
+            </p>
 
-        <p>
-            <label for="password2">Senha:</label>
-            <input type="password" name="password2" id="password2" placeholder="Repita a senha." value="">
-        </p>
+            <p>
+                <label for="birth">Nascimento:</label>
+                <input type="date" name="birth" id="birth" placeholder="Sua data de nascimento" value="<?php echo $form['birth'] ?>">
+            </p>
 
-        <p>
-            <label></label>
-            <button type="submit">Cadastrar</button>
-        </p>
+            <p>
+                <label for="password">Senha:</label>
+                <input type="password" name="password" id="password" placeholder="Sua senha." value="">
+                <small>Sua senha deve ter pelo menos 7 caracteres, uma letra maiúscula, uma minúscula e um número.</small>
+            </p>
 
-    </form>
+            <p>
+                <label for="password2">Senha:</label>
+                <input type="password" name="password2" id="password2" placeholder="Repita a senha." value="">
+            </p>
+
+            <p>
+                <label></label>
+                <button type="submit">Cadastrar</button>
+            </p>
+
+        </form>
+
+    <?php endif; ?>
 
 </article>
 
